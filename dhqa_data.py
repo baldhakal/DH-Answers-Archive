@@ -30,23 +30,15 @@ baseurl = 'http://digitalhumanities.org/answers'
 
 
 def get_post_info(div, topic_url, feed, page_url=None):
-    # take a post container and return dict of post info
-    # takes bs4 div, base url for this topic, feedparser object,
-    # and optional page url where it differs from topic url
-    # (i.e. posts on page 2 of a topic)
-
-    info = {}
-
     # page url is different from topic url for posts on page 2
     if page_url is None:
         page_url = topic_url
 
-    # generate permalink from li id since in at least one
-    # case the permalink isn't found
-    info['url'] = '%s#%s' % (page_url, div['id'])
+    info = {
+        'url': '%s#%s' % (page_url, div['id']),
+        'order': div.div['id'].split('-')[1],
+    }
 
-    # first div id includes order information as position-#
-    info['order'] = div.div['id'].split('-')[1]
     threadauthor = div.find('div', class_='threadauthor')
     author_url = threadauthor.a['href']
     # members have local profile urls
@@ -57,9 +49,7 @@ def get_post_info(div, topic_url, feed, page_url=None):
     # question is in first threadpost
     threadpost = div.find('div', class_='threadpost')
 
-    # remove 'tweet this question' block and related comments
-    social = threadpost.find('div', class_="social-it")
-    if social:
+    if social := threadpost.find('div', class_="social-it"):
         social.extract()
     [comment.extract() for comment in threadpost.findAll(
         text=lambda text:isinstance(text, Comment))]
@@ -78,9 +68,7 @@ def get_post_info(div, topic_url, feed, page_url=None):
     # check if marked as a best answer
     info['is_best_answer'] = bool(post.find('div', class_='best_answer'))
 
-    # post date
-    poststuff = div.find('div', class_='poststuff')
-    if poststuff:
+    if poststuff := div.find('div', class_='poststuff'):
         relative_post_date = poststuff.text
         # Posted x years ago
         relative_post_date = relative_post_date.replace('Posted ', '') \
@@ -91,8 +79,7 @@ def get_post_info(div, topic_url, feed, page_url=None):
 
     # find RSS entry for this record if possible
     if feed:
-        entries = [e for e in feed.entries if e.link == info['url']]
-        if entries:
+        if entries := [e for e in feed.entries if e.link == info['url']]:
             entry = entries[0]
             # convert parsed timestruct into isoformat
             info['date'] = datetime.datetime(*entry.published_parsed[:6]) \
@@ -176,9 +163,7 @@ for path in glob.glob('topic/*/index.html'):
             post_data.update(topic_data)
             dhqa_posts.append(post_data)
 
-        # check for second page (few cases; nothing has more than 2 pages)
-        next_link = soup.find('a', class_='next')
-        if next_link:
+        if next_link := soup.find('a', class_='next'):
             page_two = '%s/index.html' % next_link['href'].lstrip('/')
             # post permalink and RSS links are relative to the page
             page_url = 'http://digitalhumanities.org/answers%s' % \
@@ -196,8 +181,8 @@ for path in glob.glob('topic/*/index.html'):
                     post_data.update(topic_data)
                     dhqa_posts.append(post_data)
 
-        # NOTE: missing 11 topic RSS feeds
-        # may be able to get date from tag feeds
+            # NOTE: missing 11 topic RSS feeds
+            # may be able to get date from tag feeds
 
 print('%d posts total' % len(dhqa_posts))
 
